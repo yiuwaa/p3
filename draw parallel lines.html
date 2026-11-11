@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>小甲蟲平行線大冒險</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+    
+    * {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: 'Zen Maru Gothic', 'Fredoka', sans-serif;
+      background-color: #f4fbf7;
+      background-image: radial-gradient(#e0f2e9 2px, transparent 2px);
+      background-size: 24px 24px;
+    }
+
+    /* iPad Canvas Container */
+    .canvas-container {
+      box-shadow: 0 12px 32px rgba(46, 125, 50, 0.15);
+      border: 8px solid #81c784;
+    }
+
+    .btn-wood {
+      background: linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%);
+      box-shadow: 0 4px 0 #4e342e;
+    }
+    .btn-wood:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #4e342e;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #ffca28 0%, #ffa000 100%);
+      box-shadow: 0 5px 0 #c77800;
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #c77800;
+    }
+
+    .btn-green {
+      background: linear-gradient(180deg, #66bb6a 0%, #43a047 100%);
+      box-shadow: 0 5px 0 #2e7d32;
+    }
+    .btn-green:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #2e7d32;
+    }
+
+    .btn-disabled {
+      background: #cfd8dc !important;
+      box-shadow: 0 4px 0 #90a4ae !important;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Floating animation for Mascot */
+    @keyframes floatBug {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(3deg); }
+    }
+    .animate-float {
+      animation: floatBug 3s ease-in-out infinite;
+    }
+
+    /* Pulse effect for grid highlight */
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+    .pulse-glow {
+      animation: pulseGlow 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 text-gray-800">
+
+  <!-- TOP HEADER / NAV -->
+  <header class="max-w-6xl w-full mx-auto flex flex-wrap justify-between items-center bg-white/90 backdrop-blur-md p-3 md:p-4 rounded-3xl border-2 border-green-200 shadow-sm mb-3">
+    <div class="flex items-center space-x-3">
+      <!-- Beetle Avatar Icon -->
+      <div class="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center border-2 border-red-300 shadow-inner">
+        <span class="text-3xl">🐞</span>
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-black text-emerald-800 tracking-wide">小甲蟲平行線大冒險</h1>
+        <p class="text-xs md:text-sm text-emerald-600 font-bold" id="mode-subtitle">教學模式：跟著甲蟲波波學習畫平行線</p>
+      </div>
+    </div>
+
+    <!-- Mode Selector & Stats -->
+    <div class="flex items-center space-x-2 md:space-x-4 mt-2 sm:mt-0">
+      <!-- Hint Button -->
+      <button id="btn-hint" onclick="toggleHint()" class="px-3 py-2 rounded-xl text-sm font-black bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-md flex items-center space-x-1 transition-all active:scale-95">
+        <span>💡 提示</span>
+      </button>
+
+      <div class="flex bg-emerald-100 p-1.5 rounded-2xl">
+        <button id="btn-mode-tutorial" onclick="switchGameMode('TUTORIAL')" class="px-4 py-2 rounded-xl text-sm font-black transition-all bg-emerald-600 text-white shadow-md">
+          📚 教學模式
+        </button>
+        <button id="btn-mode-challenge" onclick="switchGameMode('CHALLENGE')" class="px-4 py-2 rounded-xl text-sm font-black transition-all text-emerald-800 hover:bg-emerald-200">
+          ⭐ 星級挑戰 <span id="lock-badge" class="ml-1 text-xs bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full">🔒未解鎖</span>
+        </button>
+      </div>
+
+      <!-- Score Box (Visible in Challenge Mode) -->
+      <div id="challenge-score-box" class="hidden flex items-center bg-amber-50 border-2 border-amber-300 px-3 py-1.5 rounded-2xl">
+        <span class="text-amber-500 font-bold text-lg mr-1">⭐</span>
+        <span id="score-text" class="text-amber-800 font-black text-lg">0</span>
+        <span id="level-badge" class="ml-2 text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded-lg font-bold">簡單</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN GAME AREA -->
+  <main class="max-w-6xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+    
+    <!-- LEFT: GRID CANVAS (iPad Main Interaction) -->
+    <div class="lg:col-span-7 flex flex-col items-center">
+      <div class="relative w-full aspect-square max-w-[540px] bg-amber-50/70 rounded-3xl canvas-container overflow-hidden p-2">
+        <canvas id="gridCanvas" class="w-full h-full rounded-2xl bg-white cursor-pointer shadow-inner"></canvas>
+        
+        <!-- Canvas Touch Instruction Overlay -->
+        <div id="canvas-overlay-tip" class="absolute top-4 left-1/2 -translate-x-1/2 bg-emerald-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full backdrop-blur-sm pointer-events-none shadow-md">
+          👇 點擊格仔紙上的點來測試步數
+        </div>
+      </div>
+      
+      <div class="flex justify-between w-full max-w-[540px] mt-2 px-2 text-xs text-gray-500 font-bold">
+        <span>⬛ 黑線：題目原本的線段</span>
+        <span>🔴 起點標籤 | 🔵 終點標籤</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: STEP CONTROLS & BEETLE INSTRUCTIONS -->
+    <div class="lg:col-span-5 flex flex-col space-y-4 w-full">
+      
+      <!-- Beetle Mascot & Speech Dialogue -->
+      <div class="bg-white border-2 border-green-200 rounded-3xl p-4 shadow-sm flex items-start space-x-3 relative">
+        <div class="text-4xl animate-float flex-shrink-0 bg-emerald-100 p-2 rounded-2xl">🐞</div>
+        <div class="flex-1">
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-black text-emerald-800 text-sm">甲蟲波波 的小提示</span>
+            <span id="step-badge" class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">步驟 1/4</span>
+          </div>
+          <p id="beetle-dialogue" class="text-sm md:text-base text-gray-700 font-bold leading-relaxed">
+            歡迎來到格仔紙公園！請先點擊格仔紙上的任意點，測試當作【起點】喔！
+          </p>
+        </div>
+      </div>
+
+      <!-- STEP DISTANCE HINT COMPARISON PANEL -->
+      <div id="distance-hint-card" class="bg-amber-50/90 border-2 border-amber-200 rounded-3xl p-4 shadow-sm">
+        <h3 class="font-black text-amber-900 text-sm mb-2 flex items-center justify-between">
+          <span class="flex items-center"><span class="text-base mr-1">📏</span> 步數距離測試與比對</span>
+          <button onclick="toggleHint()" class="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded-full font-bold">💡 需要幫助？</button>
+        </h3>
+        
+        <div class="space-y-2 text-xs md:text-sm font-bold">
+          <!-- Start Point Vector -->
+          <div id="start-step-box" class="bg-white/80 p-2.5 rounded-xl border border-amber-200 flex justify-between items-center">
+            <span class="text-gray-600">🔴 起點平移距離：</span>
+            <span id="start-step-text" class="text-emerald-700 font-black">尚未點擊選擇</span>
+          </div>
+
+          <!-- End Point Vector -->
+          <div id="end-step-box" class="bg-white/80 p-2.5 rounded-xl border border-amber-200 flex justify-between items-center">
+            <span class="text-gray-600">🔵 終點平移距離：</span>
+            <span id="end-step-text" class="text-emerald-700 font-black">等待選擇起點</span>
+          </div>
+
+          <!-- Mandatory Comparison Feedback Hint -->
+          <div id="comparison-hint-box" class="bg-emerald-100/80 p-3 rounded-2xl border border-emerald-300 text-emerald-900 text-xs md:text-sm font-bold leading-snug">
+            💡 提示：平行線的秘訣在於「起點」和「終點」必須移動完全相同的格數與方向！
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS STEP CONTROL PANEL -->
+      <div class="bg-white border-2 border-green-200 rounded-3xl p-4 shadow-sm flex flex-col space-y-3">
+        
+        <!-- STEP 1: CONFIRM START BUTTON -->
+        <button id="btn-confirm-start" onclick="confirmStartPoint()" disabled class="btn-primary w-full py-3 rounded-2xl text-white font-black text-lg transition-all flex items-center justify-center space-x-2 btn-disabled">
+          <span>1. 確認起點</span>
+          <span class="text-xs bg-white/30 px-2 py-0.5 rounded-full">點擊點後按此</span>
+        </button>
+
+        <!-- STEP 2: CONFIRM END BUTTON -->
+        <button id="btn-confirm-end" onclick="confirmEndPoint()" disabled class="btn-primary w-full py-3 rounded-2xl text-white font-black text-lg transition-all flex items-center justify-center space-x-2 btn-disabled">
+          <span>2. 確認終點</span>
+          <span class="text-xs bg-white/30 px-2 py-0.5 rounded-full">比對步數後按此</span>
+        </button>
+
+        <!-- STEP 3: DRAW LINE BUTTON -->
+        <button id="btn-draw-line" onclick="triggerDrawAnimation()" disabled class="btn-green w-full py-3 rounded-2xl text-white font-black text-lg transition-all flex items-center justify-center space-x-2 btn-disabled">
+          <span>🎨 3. 畫出平行線</span>
+          <span class="text-xs bg-white/30 px-2 py-0.5 rounded-full">讓小甲蟲出發</span>
+        </button>
+
+        <!-- STEP 4: MANDATORY USER FINAL CONFIRM PARALLEL BUTTON -->
+        <button id="btn-verify-parallel" onclick="submitFinalVerification()" disabled class="btn-wood w-full py-3.5 rounded-2xl text-amber-100 font-black text-xl transition-all flex items-center justify-center space-x-2 btn-disabled shadow-lg">
+          <span>✨ 4. 確認是平行線</span>
+        </button>
+
+        <div class="pt-1 flex space-x-2">
+          <button onclick="resetCurrentStep()" class="flex-1 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-all border border-gray-300">
+            ↺ 重新選擇點
+          </button>
+          <button onclick="skipOrNextQuestion()" class="py-2 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs transition-all border border-emerald-200">
+            ⏭️ 換下一題
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="max-w-6xl w-full mx-auto text-center py-2 text-xs text-emerald-800/60 font-bold">
+    小學數學專用教學輔助工具 — 《小甲蟲平行線大冒險》 iPad 觸控優化版
+  </footer>
+
+  <!-- VICTORY / FEEDBACK MODAL DIALOG -->
+  <div id="result-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center border-4 border-amber-300 shadow-2xl relative transform transition-all scale-95">
+      <div id="modal-icon" class="text-6xl mb-2 animate-bounce">🎉</div>
+      <h2 id="modal-title" class="text-2xl font-black text-emerald-800 mb-2">太棒了！答對囉！</h2>
+      <p id="modal-desc" class="text-sm text-gray-600 font-bold mb-6">
+        兩條線移動的格數與方向完全相同，牠們永遠不會相交，是非常完美的平行線！
+      </p>
+      <button id="modal-next-btn" onclick="closeModalAndNext()" class="btn-green w-full py-3.5 rounded-2xl text-white font-black text-lg shadow-md">
+        繼續下一題 ➔
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2 MISMATCH WARNING MODAL DIALOG -->
+  <div id="warning-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center border-4 border-amber-400 shadow-2xl relative transform transition-all scale-95">
+      <div class="text-5xl mb-2 animate-bounce">🐞🚨</div>
+      <h2 id="warning-modal-title" class="text-2xl font-black text-amber-800 mb-2">⚠️ 兩點步數不相同喔！</h2>
+      <div id="warning-modal-desc" class="text-sm text-gray-700 font-bold mb-6 leading-relaxed bg-amber-50 p-3 rounded-2xl border border-amber-200 text-left">
+        起點和終點移動的格數不一樣！
+      </div>
+      <button onclick="closeWarningModal()" class="btn-primary w-full py-3.5 rounded-2xl text-white font-black text-lg shadow-md">
+        🔍 我知道了，再仔細數數格仔！
+      </button>
+    </div>
+  </div>
+
+  <!-- CANVAS CONFETTI EFFECT -->
+  <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-40 hidden"></canvas>
+
+  <!-- JAVASCRIPT GAME ENGINE -->
+  <script>
+    /* ===================================================================
+       AUDIO SYNTHESIZER (Web Audio API - No External Files Required)
+       =================================================================== */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+      playTap() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      }
+      playConfirm() {
+        this.init();
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.05 + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.05);
+          osc.stop(now + idx * 0.05 + 0.2);
+        });
+      }
+      playCrawling() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(300 + Math.random() * 200, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.05);
+      }
+      playVictory() {
+        this.init();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const startTime = this.ctx.currentTime + i * 0.12;
+          gain.gain.setValueAtTime(0.3, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + 0.35);
+        });
+      }
+      playError() {
+        this.init();
+        const now = this.ctx.currentTime;
+        [300, 220].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.value = freq;
+          const startTime = now + i * 0.15;
+          gain.gain.setValueAtTime(0.2, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + 0.2);
+        });
+      }
+    }
+    const sfx = new SoundFX();
+
+    /* ===================================================================
+       GAME STATE & CONFIGURATION
+       =================================================================== */
+    const GRID_SIZE = 6; // 6x6 grid squares (7x7 intersection dots)
+    let canvas, ctx;
+    let canvasWidth, canvasHeight, gridSpacing, margin;
+
+    // Game Mode: 'TUTORIAL' or 'CHALLENGE'
+    let gameMode = 'TUTORIAL';
+    let tutorialLevelIndex = 0;
+    let isChallengeUnlocked = false;
+
+    // Challenge Adaptive Difficulty
+    let challengeScore = 0;
+    let challengeStreak = 0;
+    let mistakeCount = 0;
+    let currentDifficulty = 'EASY'; // 'EASY' (Horizontal/Vertical) or 'HARD' (Diagonals)
+
+    // Current Problem Line (Original Black Line)
+    let origStart = { x: 1, y: 1 };
+    let origEnd = { x: 5, y: 1 };
+
+    // Interactive Step State
+    // 0: SELECT_START, 1: CONFIRM_START, 2: SELECT_END, 3: CONFIRM_END, 4: READY_TO_DRAW, 5: ANIMATING, 6: READY_TO_VERIFY
+    let stepState = 0;
+
+    // Hint State
+    let isHintActive = false;
+    let hintData = null;
+
+    // User Tapped Points
+    let userStart = null; // {x, y}
+    let userEnd = null;   // {x, y}
+    let isStartConfirmed = false;
+    let isEndConfirmed = false;
+
+    // Beetle Animation state
+    let animProgress = 0;
+    let isAnimating = false;
+
+    // Tutorial Levels presets
+    const TUTORIAL_LEVELS = [
+      {
+        name: "第 1 關：水平線段",
+        start: { x: 1, y: 1 },
+        end: { x: 5, y: 1 },
+        desc: "【水平線】試著向下移動 3 格，點擊起點與終點，畫出一條平行的水平線！"
+      },
+      {
+        name: "第 2 關：垂直線段",
+        start: { x: 5, y: 1 },
+        end: { x: 5, y: 5 },
+        desc: "【垂直線】試著向左移動 4 格，畫出一條與黑線平行的垂直線！"
+      },
+      {
+        name: "第 3 關：對角斜線",
+        start: { x: 1, y: 1 },
+        end: { x: 5, y: 5 },
+        desc: "【對角斜線】起點與終點都需要移動相同的步數（例如：右1格、下1格）！"
+      },
+      {
+        name: "第 4 關：陡峭斜線",
+        start: { x: 1, y: 1 },
+        end: { x: 3, y: 5 },
+        desc: "【陡峭斜線】仔細算好起點平移的格數，讓終點也移動完全一樣的步數！"
+      }
+    ];
+
+    /* ===================================================================
+       INITIALIZATION & CANVAS SETUP
+       =================================================================== */
+    window.onload = function() {
+      canvas = document.getElementById('gridCanvas');
+      ctx = canvas.getContext('2d');
+
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      // Touch & Mouse Event Handlers for iPad
+      canvas.addEventListener('pointerdown', handleCanvasTap);
+
+      // Load Tutorial Level 1
+      loadLevel();
+    };
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      const size = Math.min(container.clientWidth, container.clientHeight);
+      
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = size * dpr;
+      canvas.height = size * dpr;
+      canvas.style.width = size + 'px';
+      canvas.style.height = size + 'px';
+
+      ctx.scale(dpr, dpr);
+
+      canvasWidth = size;
+      canvasHeight = size;
+      margin = size * 0.12;
+      gridSpacing = (size - margin * 2) / GRID_SIZE;
+
+      drawScene();
+    }
+
+    /* Convert Grid Coordinates (0..6) to Canvas Pixels */
+    function gridToPixel(gx, gy) {
+      return {
+        x: margin + gx * gridSpacing,
+        y: margin + gy * gridSpacing
+      };
+    }
+
+    /* Convert Canvas Pixels to Nearest Grid Node */
+    function pixelToGrid(px, py) {
+      const gx = Math.round((px - margin) / gridSpacing);
+      const gy = Math.round((py - margin) / gridSpacing);
+      if (gx >= 0 && gx <= GRID_SIZE && gy >= 0 && gy <= GRID_SIZE) {
+        const nodePx = gridToPixel(gx, gy);
+        const dist = Math.hypot(px - nodePx.x, py - nodePx.y);
+        if (dist < gridSpacing * 0.45) { // Touch tolerance for iPad
+          return { x: gx, y: gy };
+        }
+      }
+      return null;
+    }
+
+    /* ===================================================================
+       LEVEL & MODE MANAGEMENT
+       =================================================================== */
+    function switchGameMode(mode) {
+      if (mode === 'CHALLENGE' && !isChallengeUnlocked) {
+        alert("🔒 請先完成所有教學模式關卡，即可解鎖星級挑戰模式喔！");
+        return;
+      }
+      gameMode = mode;
+      
+      const btnTut = document.getElementById('btn-mode-tutorial');
+      const btnCha = document.getElementById('btn-mode-challenge');
+      const subtitle = document.getElementById('mode-subtitle');
+      const scoreBox = document.getElementById('challenge-score-box');
+
+      if (mode === 'TUTORIAL') {
+        btnTut.className = "px-4 py-2 rounded-xl text-sm font-black transition-all bg-emerald-600 text-white shadow-md";
+        btnCha.className = "px-4 py-2 rounded-xl text-sm font-black transition-all text-emerald-800 hover:bg-emerald-200";
+        subtitle.innerText = "教學模式：跟著甲蟲波波學習畫平行線";
+        scoreBox.classList.add('hidden');
+      } else {
+        btnCha.className = "px-4 py-2 rounded-xl text-sm font-black transition-all bg-amber-500 text-white shadow-md";
+        btnTut.className = "px-4 py-2 rounded-xl text-sm font-black transition-all text-emerald-800 hover:bg-emerald-200";
+        subtitle.innerText = "星級挑戰模式：自適應難度，累積星級！";
+        scoreBox.classList.remove('hidden');
+      }
+
+      resetCurrentStep();
+      loadLevel();
+    }
+
+    function unlockChallengeMode() {
+      isChallengeUnlocked = true;
+      const badge = document.getElementById('lock-badge');
+      if (badge) badge.remove();
+    }
+
+    function loadLevel() {
+      resetCurrentStep();
+
+      if (gameMode === 'TUTORIAL') {
+        const lvl = TUTORIAL_LEVELS[tutorialLevelIndex];
+        origStart = { ...lvl.start };
+        origEnd = { ...lvl.end };
+        updateDialogue(`<b>${lvl.name}</b><br>${lvl.desc}`);
+      } else {
+        // Challenge Mode Adaptive Problem Generation
+        generateAdaptiveChallenge();
+      }
+
+      drawScene();
+    }
+
+    function generateAdaptiveChallenge() {
+      // Adaptive difficulty logic:
+      // If mistakeCount >= 2 -> force EASY (Horizontal or Vertical)
+      // Else -> HARD (Diagonal)
+      const levelBadge = document.getElementById('level-badge');
+      if (mistakeCount >= 2) {
+        currentDifficulty = 'EASY';
+        if (levelBadge) {
+          levelBadge.innerText = "簡單 (水平/垂直)";
+          levelBadge.className = "ml-2 text-xs bg-green-200 text-green-900 px-2 py-0.5 rounded-lg font-bold";
+        }
+        updateDialogue("別擔心！甲蟲波波先為你準備簡單題，重新找回手感吧！🐞");
+      } else {
+        currentDifficulty = 'HARD';
+        if (levelBadge) {
+          levelBadge.innerText = "挑戰 (斜線)";
+          levelBadge.className = "ml-2 text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded-lg font-bold";
+        }
+        updateDialogue("星級挑戰！仔細算出起點與終點移動的格數喔！🌟");
+      }
+
+      if (currentDifficulty === 'EASY') {
+        // Horizontal or Vertical
+        if (Math.random() < 0.5) {
+          // Horizontal line
+          const y = Math.floor(Math.random() * 3) + 1;
+          const x1 = 1;
+          const x2 = 5;
+          origStart = { x: x1, y: y };
+          origEnd = { x: x2, y: y };
+        } else {
+          // Vertical line
+          const x = Math.floor(Math.random() * 3) + 3;
+          const y1 = 1;
+          const y2 = 5;
+          origStart = { x: x, y: y1 };
+          origEnd = { x: x, y: y2 };
+        }
+      } else {
+        // Diagonal line
+        const x1 = Math.floor(Math.random() * 2) + 1;
+        const y1 = Math.floor(Math.random() * 2) + 1;
+        const dx = Math.floor(Math.random() * 3) + 2;
+        const dy = Math.floor(Math.random() * 3) + 2;
+        origStart = { x: x1, y: y1 };
+        origEnd = { x: Math.min(x1 + dx, 6), y: Math.min(y1 + dy, 6) };
+      }
+    }
+
+    /* ===================================================================
+       STEP INTERACTION ENGINE & VECTOR CALCULATIONS
+       =================================================================== */
+    function handleCanvasTap(e) {
+      if (isAnimating || stepState === 4 || stepState === 5 || stepState === 6) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+
+      const tappedGrid = pixelToGrid(px, py);
+      if (!tappedGrid) return;
+
+      sfx.playTap();
+
+      if (!isStartConfirmed) {
+        // Step 1: Choosing or updating Start point candidate
+        userStart = tappedGrid;
+        stepState = 1;
+        updateUIState();
+      } else if (!isEndConfirmed) {
+        // Step 2: Choosing or updating End point candidate
+        // Prevent choosing identical start point
+        if (userStart && tappedGrid.x === userStart.x && tappedGrid.y === userStart.y) return;
+
+        userEnd = tappedGrid;
+        stepState = 3;
+        updateUIState();
+      }
+
+      drawScene();
+    }
+
+    function confirmStartPoint() {
+      if (!userStart) return;
+      sfx.playConfirm();
+      isStartConfirmed = true;
+      stepState = 2; // Moving to select end point
+
+      // 關閉提示狀態：玩家必須再按一次「💡 提示」才會顯示終點提示
+      isHintActive = false;
+      hintData = null;
+
+      updateUIState();
+      updateDialogue("起點已固定！📍 現在請點擊格仔紙上的第二點作為【終點】。（若不懂怎樣畫可以再按一次「💡 提示」喔！）");
+      
+      drawScene();
+    }
+
+    function confirmEndPoint() {
+      if (!userEnd || !userStart) return;
+
+      // Vector Distance Validation Check between Start and End points
+      const v1 = { dx: userStart.x - origStart.x, dy: userStart.y - origStart.y };
+      const v2 = { dx: userEnd.x - origEnd.x, dy: userEnd.y - origEnd.y };
+
+      const isVectorEqual = (v1.dx === v2.dx && v1.dy === v2.dy);
+
+      if (!isVectorEqual) {
+        sfx.playError();
+        
+        const getVecStr = (v) => {
+          let strX = v.dx > 0 ? `向右 ${v.dx} 格` : (v.dx < 0 ? `向左 ${Math.abs(v.dx)} 格` : `水平無移動`);
+          let strY = v.dy > 0 ? `向下 ${v.dy} 格` : (v.dy < 0 ? `向上 ${Math.abs(v.dy)} 格` : `垂直無移動`);
+          return `${strX}，${strY}`;
+        };
+
+        showWarningModal(
+          "⚠️ 兩點步數不相同喔！",
+          `🔴 <b>起點平移距離：</b>${getVecStr(v1)}<br>` +
+          `🔵 <b>終點平移距離：</b>${getVecStr(v2)}<br><br>` +
+          `🐞 <b>甲蟲波波提醒：</b><br>兩隻小甲蟲如果走的方向與步數不一樣，畫出來的線段會歪掉喔！請再仔細數數看格仔～`
+        );
+        return; // Block confirmation until student fixes position!
+      }
+
+      sfx.playConfirm();
+      isEndConfirmed = true;
+      isHintActive = false;
+      hintData = null;
+      stepState = 4; // Ready to draw
+      updateUIState();
+      updateDialogue("兩點步數完全相同！點擊【🎨 3. 畫出平行線】按鈕，看小甲蟲爬過！");
+      drawScene();
+    }
+
+    /* Modal Controls for Step 2 Warning */
+    function showWarningModal(title, descHtml) {
+      document.getElementById('warning-modal-title').innerText = title;
+      document.getElementById('warning-modal-desc').innerHTML = descHtml;
+      document.getElementById('warning-modal').classList.remove('hidden');
+    }
+
+    function closeWarningModal() {
+      document.getElementById('warning-modal').classList.add('hidden');
+    }
+
+    /* HINT FEATURE ENGINE */
+    function toggleHint() {
+      sfx.playTap();
+      isHintActive = !isHintActive;
+
+      if (isHintActive) {
+        hintData = calculateParallelHint();
+        if (hintData) {
+          const dirStr = getVectorDescription(hintData.shift);
+          if (hintData.stage === 'START') {
+            updateDialogue(`💡 <b>小燈泡提示（第一步 - 起點）：</b><br>試試看從黑線起點【${dirStr}】點擊黃色閃爍點作為【起點】！`);
+          } else {
+            updateDialogue(`💡 <b>小燈泡提示（第二步 - 終點）：</b><br>起點平移了【${dirStr}】，終點也必須【${dirStr}】！點擊黃色閃爍點作為【終點】吧！`);
+          }
+        }
+      } else {
+        hintData = null;
+        if (gameMode === 'TUTORIAL') {
+          updateDialogue(TUTORIAL_LEVELS[tutorialLevelIndex].desc);
+        } else {
+          updateDialogue("請點擊格仔紙上的點，開始畫平行線！🐞");
+        }
+      }
+      drawScene();
+    }
+
+    function calculateParallelHint() {
+      if (!isStartConfirmed) {
+        // First hint stage: Only hint START point
+        const candidateShifts = [
+          { dx: 0, dy: 2 }, { dx: 0, dy: -2 }, { dx: 0, dy: 3 }, { dx: 0, dy: -3 },
+          { dx: 2, dy: 0 }, { dx: -2, dy: 0 }, { dx: 2, dy: 2 }, { dx: -2, dy: -2 }
+        ];
+
+        for (let s of candidateShifts) {
+          const targetStart = { x: origStart.x + s.dx, y: origStart.y + s.dy };
+          const targetEnd = { x: origEnd.x + s.dx, y: origEnd.y + s.dy };
+
+          if (targetStart.x >= 0 && targetStart.x <= GRID_SIZE && targetStart.y >= 0 && targetStart.y <= GRID_SIZE &&
+              targetEnd.x >= 0 && targetEnd.x <= GRID_SIZE && targetEnd.y >= 0 && targetEnd.y <= GRID_SIZE) {
+            return { shift: s, start: targetStart, stage: 'START' };
+          }
+        }
+        return { shift: { dx: 0, dy: 2 }, start: { x: origStart.x, y: origStart.y + 2 }, stage: 'START' };
+      } else {
+        // Second hint stage: Hint END point based on user's confirmed start point
+        const shift = { dx: userStart.x - origStart.x, dy: userStart.y - origStart.y };
+        const targetEnd = { x: origEnd.x + shift.dx, y: origEnd.y + shift.dy };
+        return { shift: shift, end: targetEnd, stage: 'END' };
+      }
+    }
+
+    function getVectorDescription(shift) {
+      let parts = [];
+      if (shift.dx > 0) parts.push(`向右 ${shift.dx} 格`);
+      if (shift.dx < 0) parts.push(`向左 ${Math.abs(shift.dx)} 格`);
+      if (shift.dy > 0) parts.push(`向下 ${shift.dy} 格`);
+      if (shift.dy < 0) parts.push(`向上 ${Math.abs(shift.dy)} 格`);
+      return parts.join('、') || "無移動";
+    }
+
+    function resetCurrentStep() {
+      userStart = null;
+      userEnd = null;
+      isStartConfirmed = false;
+      isEndConfirmed = false;
+      isHintActive = false;
+      hintData = null;
+      stepState = 0;
+      animProgress = 0;
+      isAnimating = false;
+
+      updateUIState();
+      if (gameMode === 'TUTORIAL') {
+        updateDialogue(TUTORIAL_LEVELS[tutorialLevelIndex].desc);
+      } else {
+        updateDialogue("請點擊格仔紙上的點，開始畫平行線！🐞");
+      }
+      drawScene();
+    }
+
+    function updateDialogue(htmlText) {
+      document.getElementById('beetle-dialogue').innerHTML = htmlText;
+    }
+
+    /* ===================================================================
+       ANIMATION & FINAL VERIFICATION
+       =================================================================== */
+    function triggerDrawAnimation() {
+      if (stepState !== 4) return;
+
+      isAnimating = true;
+      stepState = 5;
+      animProgress = 0;
+      updateUIState();
+      updateDialogue("🐞 甲蟲波波正在畫線中... 爬呀爬...");
+
+      const startTime = performance.now();
+      const duration = 1200; // 1.2s animation
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        animProgress = Math.min(elapsed / duration, 1.0);
+
+        if (Math.random() < 0.2) sfx.playCrawling();
+
+        drawScene();
+
+        if (animProgress < 1.0) {
+          requestAnimationFrame(animate);
+        } else {
+          isAnimating = false;
+          stepState = 6; // Mandatory User Verification step!
+          updateUIState();
+          updateDialogue("線畫好囉！最後請按下<b>【✨ 4. 確認是平行線】</b>進行檢查判定！");
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    /* User Clicks 【確認是平行線】 Button */
+    function submitFinalVerification() {
+      if (stepState !== 6) return;
+
+      // Mathematical Validation
+      const v1 = { dx: userStart.x - origStart.x, dy: userStart.y - origStart.y };
+      const v2 = { dx: userEnd.x - origEnd.x, dy: userEnd.y - origEnd.y };
+
+      // Check if vectors match and is not overlapping same position
+      const isVectorEqual = (v1.dx === v2.dx && v1.dy === v2.dy);
+      const isNotSameLine = !(userStart.x === origStart.x && userStart.y === origStart.y && userEnd.x === origEnd.x && userEnd.y === origEnd.y);
+
+      const isCorrect = isVectorEqual && isNotSameLine;
+
+      if (isCorrect) {
+        sfx.playVictory();
+        triggerConfetti();
+
+        if (gameMode === 'CHALLENGE') {
+          challengeScore += 100 + challengeStreak * 20;
+          challengeStreak++;
+          mistakeCount = 0;
+          document.getElementById('score-text').innerText = challengeScore;
+        }
+
+        showModal(
+          "🎉 太棒了！完美平行線！",
+          `起點和終點都平移了相同的距離與方向！兩條線永遠不會相交！`,
+          "🌟 繼續下一題"
+        );
+      } else {
+        sfx.playError();
+        mistakeCount++;
+        challengeStreak = 0;
+
+        let errorMsg = "這兩條線的起點和終點平移距離不一樣長喔！線段歪了，兩條線延長後會相交，所以不是平行線！再試一次吧！💪";
+        if (!isNotSameLine) {
+          errorMsg = "你畫在同一條黑線上囉！請平移一段距離畫出另一條全新的平行線！";
+        }
+
+        showModal(
+          "🤔 差一點點喔！",
+          errorMsg,
+          "↺ 重新嘗試",
+          false
+        );
+      }
+    }
+
+    function showModal(title, desc, btnText, isSuccess = true) {
+      document.getElementById('modal-icon').innerText = isSuccess ? "🎉" : "💡";
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-desc').innerText = desc;
+      document.getElementById('modal-next-btn').innerText = btnText;
+
+      const modal = document.getElementById('result-modal');
+      modal.classList.remove('hidden');
+    }
+
+    function closeModalAndNext() {
+      document.getElementById('result-modal').classList.add('hidden');
+
+      if (gameMode === 'TUTORIAL') {
+        if (tutorialLevelIndex < TUTORIAL_LEVELS.length - 1) {
+          tutorialLevelIndex++;
+        } else {
+          unlockChallengeMode();
+          alert("🏆 恭喜完成所有教學模式！「⭐ 星級挑戰模式」已為你解鎖！");
+          switchGameMode('CHALLENGE');
+          return;
+        }
+      }
+      loadLevel();
+    }
+
+    function skipOrNextQuestion() {
+      loadLevel();
+    }
+
+    /* ===================================================================
+       CANVAS GRAPHICS RENDERER (Storybook Style)
+       =================================================================== */
+    function drawScene() {
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // 1. Draw Grid Lines & Paper Background
+      ctx.strokeStyle = '#e2edf7';
+      ctx.lineWidth = 2;
+
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        // Vertical grid lines
+        const p1 = gridToPixel(i, 0);
+        const p2 = gridToPixel(i, GRID_SIZE);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        // Horizontal grid lines
+        const h1 = gridToPixel(0, i);
+        const h2 = gridToPixel(GRID_SIZE, i);
+        ctx.beginPath();
+        ctx.moveTo(h1.x, h1.y);
+        ctx.lineTo(h2.x, h2.y);
+        ctx.stroke();
+      }
+
+      // Grid Intersection Dots
+      for (let x = 0; x <= GRID_SIZE; x++) {
+        for (let y = 0; y <= GRID_SIZE; y++) {
+          const p = gridToPixel(x, y);
+          ctx.fillStyle = '#b0bec5';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 2. Draw Original Problem Line (Black Branch Style)
+      const pOrigStart = gridToPixel(origStart.x, origStart.y);
+      const pOrigEnd = gridToPixel(origEnd.x, origEnd.y);
+
+      ctx.strokeStyle = '#263238';
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(pOrigStart.x, pOrigStart.y);
+      ctx.lineTo(pOrigEnd.x, pOrigEnd.y);
+      ctx.stroke();
+
+      // Original Start (A) & End (B) badges
+      drawBadge(pOrigStart.x, pOrigStart.y, '起點', '#37474f');
+      drawBadge(pOrigEnd.x, pOrigEnd.y, '終點', '#37474f');
+
+      // 3. Draw Vector Arrows & Dotted Walk Lines if User Selected Points
+      if (userStart) {
+        const pUserStart = gridToPixel(userStart.x, userStart.y);
+        drawVectorPath(pOrigStart, pUserStart, '#e53935');
+        drawMarker(pUserStart.x, pUserStart.y, '🔴', '玩家起點');
+      }
+
+      if (userEnd) {
+        const pUserEnd = gridToPixel(userEnd.x, userEnd.y);
+        drawVectorPath(pOrigEnd, pUserEnd, '#1e88e5');
+        drawMarker(pUserEnd.x, pUserEnd.y, '🔵', '玩家終點');
+      }
+
+      // Draw Visual Glowing Hint Targets if Hint is active
+      if (isHintActive && hintData) {
+        if (hintData.stage === 'START' && hintData.start) {
+          const pHintStart = gridToPixel(hintData.start.x, hintData.start.y);
+          drawHintCircle(pHintStart.x, pHintStart.y, '建議起點💡');
+        } else if (hintData.stage === 'END' && hintData.end) {
+          const pHintEnd = gridToPixel(hintData.end.x, hintData.end.y);
+          
+          // Dashed reference path for end point hint
+          const pOrigEnd = gridToPixel(origEnd.x, origEnd.y);
+          drawVectorPath(pOrigEnd, pHintEnd, '#fbc02d');
+
+          drawHintCircle(pHintEnd.x, pHintEnd.y, '建議終點💡');
+        }
+      }
+
+      // 4. Draw Animated Parallel Line & Ladybug
+      if (userStart && userEnd && stepState >= 4) {
+        const pUStart = gridToPixel(userStart.x, userStart.y);
+        const pUEnd = gridToPixel(userEnd.x, userEnd.y);
+
+        const currentX = pUStart.x + (pUEnd.x - pUStart.x) * (isAnimating ? animProgress : 1.0);
+        const currentY = pUStart.y + (pUEnd.y - pUStart.y) * (isAnimating ? animProgress : 1.0);
+
+        // Draw User's Colorful Line
+        ctx.strokeStyle = '#ffb300';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pUStart.x, pUStart.y);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+
+        // Inner glowing core line
+        ctx.strokeStyle = '#ff6f00';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pUStart.x, pUStart.y);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+
+        // Cute Animated Ladybug Beetle Mascot
+        const angle = Math.atan2(pUEnd.y - pUStart.y, pUEnd.x - pUStart.x);
+        drawLadybug(currentX, currentY, angle);
+      }
+    }
+
+    /* Helper: Draw Vector Step Paths */
+    function drawVectorPath(pOrig, pUser, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(pOrig.x, pOrig.y);
+      ctx.lineTo(pUser.x, pUser.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* Helper: Dynamic UI State Manager */
+    function updateUIState() {
+      const btnStart = document.getElementById('btn-confirm-start');
+      const btnEnd = document.getElementById('btn-confirm-end');
+      const btnDraw = document.getElementById('btn-draw-line');
+      const btnVerify = document.getElementById('btn-verify-parallel');
+      const badge = document.getElementById('step-badge');
+
+      const setBtnState = (btn, active) => {
+        if (!btn) return;
+        if (active) {
+          btn.disabled = false;
+          btn.classList.remove('btn-disabled');
+        } else {
+          btn.disabled = true;
+          btn.classList.add('btn-disabled');
+        }
+      };
+
+      setBtnState(btnStart, stepState === 1);
+      setBtnState(btnEnd, stepState === 3);
+      setBtnState(btnDraw, stepState === 4);
+      setBtnState(btnVerify, stepState === 6);
+
+      if (stepState <= 1) badge.innerText = "步驟 1/4";
+      else if (stepState <= 3) badge.innerText = "步驟 2/4";
+      else if (stepState === 4 || stepState === 5) badge.innerText = "步驟 3/4";
+      else if (stepState === 6) badge.innerText = "步驟 4/4";
+
+      const startText = document.getElementById('start-step-text');
+      const endText = document.getElementById('end-step-text');
+      const hintBox = document.getElementById('comparison-hint-box');
+
+      if (userStart) {
+        const v1 = { dx: userStart.x - origStart.x, dy: userStart.y - origStart.y };
+        startText.innerHTML = getVectorDescription(v1);
+      } else {
+        startText.innerText = "尚未點擊選擇";
+      }
+
+      if (userEnd) {
+        const v2 = { dx: userEnd.x - origEnd.x, dy: userEnd.y - origEnd.y };
+        endText.innerHTML = getVectorDescription(v2);
+
+        if (userStart) {
+          const v1 = { dx: userStart.x - origStart.x, dy: userStart.y - origStart.y };
+          if (v1.dx === v2.dx && v1.dy === v2.dy) {
+            hintBox.className = "bg-emerald-100/90 p-3 rounded-2xl border border-emerald-400 text-emerald-900 text-xs md:text-sm font-bold leading-snug";
+            hintBox.innerHTML = "✅ <b>太棒了！</b>起點與終點的移動步數完全相同！可以按下【確認終點】。";
+          } else {
+            hintBox.className = "bg-amber-100/90 p-3 rounded-2xl border border-amber-400 text-amber-900 text-xs md:text-sm font-bold leading-snug";
+            hintBox.innerHTML = "⚠️ <b>注意！</b>起點與終點的移動步數不一致喔！請重新點選點。";
+          }
+        }
+      } else {
+        endText.innerText = isStartConfirmed ? "請點擊格仔紙選擇" : "等待選擇起點";
+        hintBox.className = "bg-emerald-100/80 p-3 rounded-2xl border border-emerald-300 text-emerald-900 text-xs md:text-sm font-bold leading-snug";
+        hintBox.innerHTML = "💡 提示：平行線的秘訣在於「起點」和「終點」必須移動完全相同的格數與方向！";
+      }
+    }
+
+    /* Helper: Draw Glowing Hint Target Circle */
+    function drawHintCircle(x, y, label) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 235, 59, 0.4)';
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f57f17';
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = 'bold 11px "Zen Maru Gothic", sans-serif';
+      ctx.fillStyle = '#e65100';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, y - 20);
+      ctx.restore();
+    }
+
+    /* Helper: Draw Cute Badge Label */
+    function drawBadge(x, y, text, color) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = 'bold 12px "Zen Maru Gothic", sans-serif';
+      ctx.fillStyle = '#1c313a';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, x, y - 12);
+      ctx.restore();
+    }
+
+    /* Helper: Draw Point Marker (Strawberry / Flower Emoji) */
+    function drawMarker(x, y, emoji, label) {
+      ctx.save();
+      ctx.font = '20px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, x, y);
+
+      ctx.font = 'bold 11px "Zen Maru Gothic", sans-serif';
+      ctx.fillStyle = '#2e7d32';
+      ctx.fillText(label, x, y + 16);
+      ctx.restore();
+    }
+
+    /* Helper: Draw Cute Ladybug Beetle */
+    function drawLadybug(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      // Beetle Body (Red Circle)
+      ctx.fillStyle = '#e53935';
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#b71c1c';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Black Head
+      ctx.fillStyle = '#212121';
+      ctx.beginPath();
+      ctx.arc(10, 0, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Wing Center Line
+      ctx.strokeStyle = '#212121';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-14, 0);
+      ctx.lineTo(4, 0);
+      ctx.stroke();
+
+      // Spots on Wings
+      ctx.fillStyle = '#212121';
+      ctx.beginPath();
+      ctx.arc(-4, -6, 2.5, 0, Math.PI * 2);
+      ctx.arc(-4, 6, 2.5, 0, Math.PI * 2);
+      ctx.arc(2, -4, 2, 0, Math.PI * 2);
+      ctx.arc(2, 4, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    /* ===================================================================
+       CELEBRATION CONFETTI ENGINE
+       =================================================================== */
+    function triggerConfetti() {
+      const cCanvas = document.getElementById('confettiCanvas');
+      cCanvas.classList.remove('hidden');
+      cCanvas.width = window.innerWidth;
+      cCanvas.height = window.innerHeight;
+      const cCtx = cCanvas.getContext('2d');
+
+      const particles = [];
+      const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#4caf50', '#ffeb3b', '#ff9800'];
+
+      for (let i = 0; i < 80; i++) {
+        particles.push({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.7) * 16,
+          size: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          gravity: 0.3,
+          rotation: Math.random() * 360
+        });
+      }
+
+      let frames = 0;
+      function renderConfetti() {
+        cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.rotation += 5;
+
+          cCtx.save();
+          cCtx.translate(p.x, p.y);
+          cCtx.rotate((p.rotation * Math.PI) / 180);
+          cCtx.fillStyle = p.color;
+          cCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          cCtx.restore();
+        });
+
+        frames++;
+        if (frames < 90) {
+          requestAnimationFrame(renderConfetti);
+        } else {
+          cCanvas.classList.add('hidden');
+        }
+      }
+      requestAnimationFrame(renderConfetti);
+    }
+  </script>
+</body>
+</html>
