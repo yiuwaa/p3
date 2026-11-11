@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>平行線探索大冒險 Parallel Lines Math Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-fredoka { font-family: 'Fredoka One', cursive; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Glassmorphism Modal Animation */
+        .glass-modal {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .modal-animate-enter {
+            animation: modalPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes modalPop {
+            0% { transform: scale(0.85) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <!-- Game Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-400 text-indigo-900 p-2 rounded-xl text-2xl font-bold shadow-inner flex items-center justify-center w-10 h-10">
+                    <i class="fa-solid font-bold">//</i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-wide">平行線探索大冒險</h1>
+                    <p class="text-xs text-indigo-200 hidden sm:block">同一平面上，無限延長永不相交的兩條直線</p>
+                </div>
+            </div>
+
+            <!-- Stats & Level Indicator -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <!-- Level Indicator -->
+                <div class="bg-indigo-700/80 px-3 py-1.5 rounded-lg border border-indigo-500/50 flex items-center space-x-2">
+                    <span class="text-xs text-indigo-200 font-bold">關卡</span>
+                    <span id="level-display" class="text-base sm:text-lg font-black text-amber-300">1 / 11</span>
+                </div>
+
+                <!-- Total Score -->
+                <div class="bg-indigo-700/80 px-3 py-1.5 rounded-lg border border-indigo-500/50 flex items-center space-x-2">
+                    <i class="fa-solid fa-trophy text-amber-400 text-sm"></i>
+                    <span id="score-display" class="text-base sm:text-lg font-black text-white">0</span>
+                </div>
+
+                <!-- Sound Toggle Button -->
+                <button id="sound-btn" class="w-9 h-9 rounded-lg bg-indigo-700 hover:bg-indigo-500 flex items-center justify-center transition border border-indigo-500/50" title="切換音效">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-white"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Bar across stages -->
+        <div class="w-full bg-indigo-900/40 h-2">
+            <div id="stage-progress-bar" class="bg-amber-400 h-2 transition-all duration-300 w-[9%]"></div>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="max-w-7xl mx-auto px-4 py-4 w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left: Canvas Geometry Area (8 cols on LG) -->
+        <div class="lg:col-span-8 bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
+            
+            <!-- Canvas Controls Header -->
+            <div id="controls-header" class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                
+                <!-- Extend Segment Control Container (Interactive in Phase 1 & 3) -->
+                <div id="extend-slider-container" class="flex items-center space-x-3 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm flex-1 max-w-md min-w-[240px]">
+                    <i class="fa-solid fa-arrows-left-right text-indigo-500 text-sm"></i>
+                    <label for="extend-slider" class="text-xs font-bold text-slate-700 whitespace-nowrap">延長線段控制</label>
+                    <input id="extend-slider" type="range" min="0" max="100" value="0" class="w-full accent-indigo-600 cursor-pointer">
+                    <span id="extend-val" class="text-xs font-black text-indigo-600 w-10 text-right">0%</span>
+                </div>
+
+                <!-- Phase 2 Lock Notice (Shown only in Phase 2 before answer) -->
+                <div id="phase2-lock-notice" class="hidden flex-1 bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-1.5 rounded-xl text-xs font-bold items-center space-x-2">
+                    <i class="fa-solid fa-lock text-amber-600"></i>
+                    <span>預測模式：無事先延長選項，請先選擇預測答案！</span>
+                </div>
+
+                <!-- Quick Buttons -->
+                <div class="flex items-center space-x-2">
+                    <button id="grid-toggle-btn" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-border-all text-indigo-500"></i>
+                        <span id="grid-btn-text">隱藏網格</span>
+                    </button>
+                    <button id="reset-ext-btn" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-rotate-left text-slate-500"></i>
+                        <span>復原</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="relative w-full bg-slate-950 aspect-[4/3] sm:aspect-[16/10] max-h-[500px] flex items-center justify-center overflow-hidden">
+                <canvas id="game-canvas" class="w-full h-full block"></canvas>
+                
+                <!-- Canvas Status Badge -->
+                <div class="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-700 text-white text-xs font-medium flex items-center space-x-2 shadow-lg">
+                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="canvas-status">第一階段：觀察與延長體驗</span>
+                </div>
+            </div>
+
+            <!-- Canvas Footer Legend -->
+            <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center space-x-4">
+                    <span class="flex items-center space-x-1.5">
+                        <span class="w-3.5 h-1.5 bg-indigo-500 rounded-full inline-block"></span>
+                        <span class="font-medium">原始短線段</span>
+                    </span>
+                    <span class="flex items-center space-x-1.5">
+                        <span class="w-3.5 h-0.5 border-b-2 border-dashed border-indigo-400 inline-block"></span>
+                        <span class="font-medium">延伸軌跡</span>
+                    </span>
+                    <span class="flex items-center space-x-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shadow"></span>
+                        <span class="font-medium">相交點 (X, Y)</span>
+                    </span>
+                </div>
+                <div id="phase-badge" class="font-bold text-indigo-700 bg-indigo-100 px-3 py-1 rounded-full border border-indigo-200">
+                    第一階段：觀察與延長體驗 (1/4)
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Task & Interactive Area (4 cols on LG) -->
+        <div class="lg:col-span-4 flex flex-col space-y-4">
+            
+            <!-- Dynamic Interactive Card -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 flex flex-col justify-between min-h-[400px]">
+                <div>
+                    <!-- Stage Tag & Level Title -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span id="question-phase-tag" class="text-xs font-bold px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                            任務目標
+                        </span>
+                        <div id="stars-container" class="flex space-x-1 text-amber-400 text-sm">
+                            <i class="fa-solid fa-star"></i>
+                            <i class="fa-solid fa-star"></i>
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                    </div>
+
+                    <!-- Question Title & Description -->
+                    <h2 id="question-title" class="text-lg font-black text-slate-800 mb-2 leading-snug">
+                        載入中...
+                    </h2>
+                    <p id="question-desc" class="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
+                        說明文字載入中...
+                    </p>
+
+                    <!-- Answer Options Area -->
+                    <div id="answer-options" class="space-y-2.5">
+                        <!-- Dynamically Injected -->
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="mt-6 pt-4 border-t border-slate-100">
+                    <button id="action-btn" class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-200 transition duration-200 active:scale-[0.98] flex items-center justify-center space-x-2">
+                        <span>提交答案</span>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Knowledge Teaching Card -->
+            <div id="knowledge-card" class="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 text-slate-800/40 text-8xl font-black select-none pointer-events-none">
+                    //
+                </div>
+                <div class="relative z-10">
+                    <div class="flex items-center space-x-2 text-amber-400 font-bold text-xs uppercase tracking-wider mb-1.5">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <span>幾何小知識</span>
+                    </div>
+                    <h3 id="knowledge-title" class="text-base font-bold text-white mb-1.5">什麼是平行線？</h3>
+                    <p id="knowledge-text" class="text-xs text-indigo-100 leading-relaxed">
+                        在「同一平面」上，不管怎麼向兩端無限延長，都「永遠不會相交」的兩條直線，我們就稱這兩條直線互相平行！
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-3 px-4 text-center text-xs text-slate-500">
+        <p>平行線探索大冒險 &copy; 幾何互動教學系統 | 適用國小與國中數學觀念啟蒙</p>
+    </footer>
+
+    <!-- STAGE COMPLETION & ERROR PROOF MODALS CONTAINER -->
+    <div id="modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div id="modal-content" class="glass-modal rounded-3xl shadow-2xl max-w-lg w-full p-6 text-center transform transition-all modal-animate-enter">
+            
+            <!-- Modal Header Icon -->
+            <div id="modal-icon-bg" class="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner border-4 border-amber-200">
+                <i id="modal-icon" class="fa-solid fa-trophy"></i>
+            </div>
+            
+            <h2 id="modal-title" class="text-2xl font-black text-slate-800 mb-2">🎉 恭喜過關！</h2>
+            <div id="modal-desc" class="text-sm text-slate-600 mb-5 leading-relaxed text-left bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                描述內容...
+            </div>
+            
+            <div id="modal-stats" class="bg-indigo-50/80 rounded-2xl p-4 mb-6 border border-indigo-100">
+                <div class="text-xs text-indigo-600 font-bold uppercase tracking-wider mb-1">當前得分</div>
+                <div id="modal-score" class="text-4xl font-black text-indigo-900">0 分</div>
+            </div>
+
+            <!-- Modal Action Buttons Container -->
+            <div id="modal-btn-container" class="flex flex-col sm:flex-row gap-3">
+                <button id="modal-secondary-btn" class="hidden flex-1 py-3.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md transition active:scale-[0.98] items-center justify-center space-x-2">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>🔍 延長線段測試驗證</span>
+                </button>
+                <button id="modal-action-btn" class="flex-1 py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 transition active:scale-[0.98] flex items-center justify-center space-x-2">
+                    <span id="modal-btn-text">進入下一個階段</span>
+                    <i id="modal-btn-icon" class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME LOGIC SCRIPT -->
+    <script>
+        /**
+         * Web Audio API Synthesizer Sound Engine
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) { console.error(e); }
+            }
+
+            playWhoosh() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(650, this.ctx.currentTime + 0.35);
+                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.35);
+                } catch(e) {}
+            }
+
+            playClick() {
+                this.playTone(600, 'sine', 0.05, 0.08);
+            }
+
+            playSuccess() {
+                if (this.muted) return;
+                this.init();
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playTone(freq, 'triangle', 0.18, 0.12);
+                    }, idx * 80);
+                });
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                this.playTone(220, 'sawtooth', 0.2, 0.12);
+                setTimeout(() => this.playTone(175, 'sawtooth', 0.25, 0.12), 110);
+            }
+
+            playStageWin() {
+                if (this.muted) return;
+                this.init();
+                const notes = [392, 523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playTone(freq, 'square', 0.25, 0.1);
+                    }, idx * 100);
+                });
+            }
+
+            playGrandWin() {
+                if (this.muted) return;
+                this.init();
+                const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playTone(freq, 'triangle', 0.35, 0.15);
+                    }, idx * 110);
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /**
+         * 11 LEVELS DATA DEFINITIONS WITH ENHANCED VISUAL CLARITY & FRIENDLY EXPLANATIONS
+         */
+        const LEVELS = [
+            // ==================== PHASE 1: LEVELS 1 - 4 (Observation & Extension) ====================
+            {
+                level: 1,
+                phase: 1,
+                phaseTitle: "第一階段：觀察與延長體驗 (1/4)",
+                title: "線段延長測試 1：清晰相交",
+                desc: "拖動左上角的「延長線段控制」拉桿延伸線段。請問這兩條線段延長後會不會相交（碰在一起）？",
+                type: "boolean",
+                correctAnswer: true, // Will intersect
+                segments: [
+                    { id: 'A', x1: 120, y1: 150, x2: 380, y2: 220, color: '#6366F1' }, 
+                    { id: 'B', x1: 120, y1: 400, x2: 380, y2: 300, color: '#10B981' }  
+                ],
+                explanation: "兩條線向右延長後碰在一起了（出現紅點）。這代表它們是會「相交」的兩條線！"
+            },
+            {
+                level: 2,
+                phase: 1,
+                phaseTitle: "第一階段：觀察與延長體驗 (2/4)",
+                title: "線段延長測試 2：水平平行線",
+                desc: "拖動拉桿將兩條水平線段向兩端拉長。觀察看看：它們無限延長後會不會碰在一起？",
+                type: "boolean",
+                correctAnswer: false, // Parallel
+                segments: [
+                    { id: 'A', x1: 150, y1: 170, x2: 520, y2: 170, color: '#6366F1' },
+                    { id: 'B', x1: 150, y1: 340, x2: 520, y2: 340, color: '#10B981' }
+                ],
+                explanation: "太棒了！這兩條水平線無論伸長多久，兩線之間的距離永遠一樣，永遠不會碰在一起，這就是「平行線」！"
+            },
+            {
+                level: 3,
+                phase: 1,
+                phaseTitle: "第一階段：觀察與延長體驗 (3/4)",
+                title: "線段延長測試 3：傾斜相交線",
+                desc: "這兩條線段是傾斜的。請延長線段觀察，它們向兩端無限延伸後會相交嗎？",
+                type: "boolean",
+                correctAnswer: true, // Intersects
+                segments: [
+                    { id: 'A', x1: 250, y1: 140, x2: 480, y2: 340, color: '#6366F1' },
+                    { id: 'B', x1: 150, y1: 250, x2: 450, y2: 360, color: '#F59E0B' }
+                ],
+                explanation: "延長線段後可以看到，兩條傾斜的線段交叉並產生了相交點！所以它們不是平行線。"
+            },
+            {
+                level: 4,
+                phase: 1,
+                phaseTitle: "第一階段：觀察與延長體驗 (4/4)",
+                title: "線段延長測試 4：傾斜平行線",
+                desc: "這兩條線段也是傾斜的。請拖動拉桿延伸線段，觀察它們是否為平行線？",
+                type: "boolean",
+                correctAnswer: false, // Parallel
+                segments: [
+                    { id: 'A', x1: 120, y1: 380, x2: 380, y2: 140, color: '#6366F1' },
+                    { id: 'B', x1: 280, y1: 450, x2: 540, y2: 210, color: '#10B981' }
+                ],
+                explanation: "正確！兩條線段傾斜的方向完全一致，即使延長再長也永遠不會碰到，這就是平行線！"
+            },
+
+            // ==================== PHASE 2: LEVELS 5 - 8 (Prediction & Verification - NO SLIDER) ====================
+            {
+                level: 5,
+                phase: 2,
+                phaseTitle: "第二階段：預測與驗證 (1/4)",
+                title: "幾何直覺預測 1：明顯相交",
+                desc: "【本階段無法手動延長】請憑眼睛觀察：這兩條線段向右延伸，預測它們「會相交」還是「不會相交（平行）」？選好後點擊驗證！",
+                type: "boolean",
+                correctAnswer: true, // Intersects
+                segments: [
+                    { id: 'A', x1: 100, y1: 150, x2: 420, y2: 220, color: '#6366F1' },
+                    { id: 'B', x1: 100, y1: 390, x2: 420, y2: 370, color: '#10B981' }
+                ],
+                explanation: "很好的觀察！這兩條線段向右邊延伸時距離越來越近，延長後確實在右側碰在一起了！"
+            },
+            {
+                level: 6,
+                phase: 2,
+                phaseTitle: "第二階段：預測與驗證 (2/4)",
+                title: "幾何直覺預測 2：平行判斷",
+                desc: "請先觀察兩條線段的傾斜走向，預測它們延長後會相交還是不會相交？",
+                type: "boolean",
+                correctAnswer: false, // Parallel
+                segments: [
+                    { id: 'A', x1: 180, y1: 420, x2: 340, y2: 110, color: '#6366F1' },
+                    { id: 'B', x1: 400, y1: 420, x2: 560, y2: 110, color: '#10B981' }
+                ],
+                explanation: "答對了！這兩條線段方向完全一樣，延伸之後永遠保持距離，不會碰在一起，是平行線。"
+            },
+            {
+                level: 7,
+                phase: 2,
+                phaseTitle: "第二階段：預測與驗證 (3/4)",
+                title: "幾何直覺預測 3：向下聚攏",
+                desc: "請預測這兩條線段向下延伸後，會相交還是不會相交（平行）？",
+                type: "boolean",
+                correctAnswer: true, // Intersects
+                segments: [
+                    { id: 'A', x1: 200, y1: 120, x2: 380, y2: 370, color: '#6366F1' },
+                    { id: 'B', x1: 560, y1: 120, x2: 460, y2: 370, color: '#F43F5E' }
+                ],
+                explanation: "沒錯！兩條線段向下延伸時距離越來越近，最終在下方交叉相交了！"
+            },
+            {
+                level: 8,
+                phase: 2,
+                phaseTitle: "第二階段：預測與驗證 (4/4)",
+                title: "幾何直覺預測 4：終極預測",
+                desc: "請預測這兩條線段向兩端延伸後是否為平行線？",
+                type: "boolean",
+                correctAnswer: false, // Parallel
+                segments: [
+                    { id: 'A', x1: 150, y1: 200, x2: 480, y2: 300, color: '#6366F1' },
+                    { id: 'B', x1: 150, y1: 300, x2: 480, y2: 400, color: '#10B981' }
+                ],
+                explanation: "太棒了！這兩條線段向兩端延長後完全不會碰到，它們是一組平行線！"
+            },
+
+            // ==================== PHASE 3: LEVELS 9 - 11 (Clear Multi-segment Challenge) ====================
+            {
+                level: 9,
+                phase: 3,
+                phaseTitle: "第三階段：多線段大挑戰 (1/3)",
+                title: "三線測試：哪兩條真正平行？",
+                desc: "【分離短線段】畫面上 3 條線段目前都沒有碰到。請拖動延長拉桿進行測試，找出哪兩條線段延長後「完全不會相交」？",
+                type: "multiselect",
+                segments: [
+                    { id: 'A', x1: 150, y1: 140, x2: 320, y2: 140, color: '#6366F1' }, // Horizontal top
+                    { id: 'B', x1: 150, y1: 240, x2: 320, y2: 190, color: '#F59E0B' }, // Tilted ~16.4° up right (Intersects A clearly at x=490)
+                    { id: 'C', x1: 150, y1: 340, x2: 320, y2: 340, color: '#10B981' }  // Horizontal mid (Parallel to A)
+                ],
+                correctPairs: ['A-C'],
+                explanation: "延長線段後可以看到，線段 B 傾斜角度比較大，延長後會與其他線相交。只有線段 A 與 C 延長後永遠不相交，是真正的平行線！"
+            },
+            {
+                level: 10,
+                phase: 3,
+                phaseTitle: "第三階段：多線段大挑戰 (2/3)",
+                title: "四線測試：尋找唯一平行組",
+                desc: "畫面上 4 條線段均未相交。請【拖動拉桿延長測試】，觀察哪兩條線段延伸後永遠不會碰在一起？",
+                type: "multiselect",
+                segments: [
+                    { id: 'A', x1: 120, y1: 120, x2: 280, y2: 180, color: '#6366F1' }, // Angle ~20.5°
+                    { id: 'B', x1: 120, y1: 210, x2: 280, y2: 230, color: '#F43F5E' }, // Angle ~7.1° (Intersects A clearly at x=480)
+                    { id: 'C', x1: 120, y1: 290, x2: 280, y2: 350, color: '#10B981' }, // Angle ~20.5° (Truly Parallel to A)
+                    { id: 'D', x1: 120, y1: 420, x2: 280, y2: 400, color: '#F59E0B' }  // Angle ~ -7.1° (Intersects C clearly at x=380)
+                ],
+                correctPairs: ['A-C'],
+                explanation: "點擊延長後可以非常清楚看到，線段 B 與 D 延伸後都產生了紅色的相交點，只有 A 與 C 是一組平行線！"
+            },
+            {
+                level: 11,
+                phase: 3,
+                phaseTitle: "第三階段：多線段大挑戰 (3/3)",
+                title: "四線終極試煉：平行線家族",
+                desc: "終極關卡！4 條線段中藏有 3 條組成「平行線家族」。請拖動拉桿延伸驗證，勾選出所有互相平行的組合！（提示：共3對）",
+                type: "multiselect",
+                segments: [
+                    { id: 'A', x1: 100, y1: 120, x2: 260, y2: 80, color: '#6366F1' },  // Slope -0.25
+                    { id: 'B', x1: 100, y1: 220, x2: 260, y2: 240, color: '#F43F5E' }, // Slope +0.125 (Intersects A & C clearly)
+                    { id: 'C', x1: 100, y1: 300, x2: 260, y2: 260, color: '#10B981' }, // Slope -0.25 (Parallel to A)
+                    { id: 'D', x1: 450, y1: 440, x2: 610, y2: 400, color: '#8B5CF6' }  // Slope -0.25 (Parallel to A & C!)
+                ],
+                correctPairs: ['A-C', 'A-D', 'C-D'],
+                explanation: "幾何小大師！延長線段後，線段 A、C、D 三條線段不論延伸多長都永遠不會碰到，互相平行！"
+            }
+        ];
+
+        /**
+         * GAME ENGINE & SYSTEM CONTROLLER
+         */
+        class Game {
+            constructor() {
+                this.currentLevelIdx = 0;
+                this.score = 0;
+                this.extendFactor = 0; // 0.0 to 1.0
+                this.showGrid = true;
+                this.selectedPairs = new Set();
+                this.selectedBoolean = null;
+                this.isSubmitted = false;
+
+                // DOM Elements
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.extendSlider = document.getElementById('extend-slider');
+                this.extendSliderContainer = document.getElementById('extend-slider-container');
+                this.phase2LockNotice = document.getElementById('phase2-lock-notice');
+                this.extendValLabel = document.getElementById('extend-val');
+                this.gridToggleBtn = document.getElementById('grid-toggle-btn');
+                this.gridBtnText = document.getElementById('grid-btn-text');
+                this.resetExtBtn = document.getElementById('reset-ext-btn');
+                this.actionBtn = document.getElementById('action-btn');
+                this.levelDisplay = document.getElementById('level-display');
+                this.scoreDisplay = document.getElementById('score-display');
+                this.stageProgressBar = document.getElementById('stage-progress-bar');
+                
+                this.questionTitle = document.getElementById('question-title');
+                this.questionDesc = document.getElementById('question-desc');
+                this.questionPhaseTag = document.getElementById('question-phase-tag');
+                this.answerOptionsContainer = document.getElementById('answer-options');
+                this.knowledgeTitle = document.getElementById('knowledge-title');
+                this.knowledgeText = document.getElementById('knowledge-text');
+                this.canvasStatus = document.getElementById('canvas-status');
+                this.phaseBadge = document.getElementById('phase-badge');
+
+                // Modal Elements
+                this.modal = document.getElementById('modal');
+                this.modalIconBg = document.getElementById('modal-icon-bg');
+                this.modalIcon = document.getElementById('modal-icon');
+                this.modalTitle = document.getElementById('modal-title');
+                this.modalDesc = document.getElementById('modal-desc');
+                this.modalScore = document.getElementById('modal-score');
+                this.modalActionBtn = document.getElementById('modal-action-btn');
+                this.modalSecondaryBtn = document.getElementById('modal-secondary-btn');
+                this.modalBtnText = document.getElementById('modal-btn-text');
+                this.modalBtnIcon = document.getElementById('modal-btn-icon');
+
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.resizeCanvas();
+                this.loadLevel(0);
+                requestAnimationFrame(() => this.render());
+            }
+
+            bindEvents() {
+                window.addEventListener('resize', () => this.resizeCanvas());
+
+                // Slider Input
+                this.extendSlider.addEventListener('input', (e) => {
+                    this.extendFactor = parseFloat(e.target.value) / 100;
+                    this.extendValLabel.textContent = `${e.target.value}%`;
+                    audio.playClick();
+                });
+
+                // Grid Toggle
+                this.gridToggleBtn.addEventListener('click', () => {
+                    this.showGrid = !this.showGrid;
+                    this.gridBtnText.textContent = this.showGrid ? '隱藏網格' : '顯示網格';
+                    audio.playClick();
+                });
+
+                // Reset Slider
+                this.resetExtBtn.addEventListener('click', () => {
+                    if (LEVELS[this.currentLevelIdx].phase === 2 && !this.isSubmitted) return;
+                    this.extendSlider.value = 0;
+                    this.extendFactor = 0;
+                    this.extendValLabel.textContent = '0%';
+                    audio.playClick();
+                });
+
+                // Sound Toggle
+                document.getElementById('sound-btn').addEventListener('click', () => {
+                    audio.muted = !audio.muted;
+                    const icon = document.getElementById('sound-icon');
+                    icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-300' : 'fa-solid fa-volume-high text-white';
+                });
+
+                // Action Button
+                this.actionBtn.addEventListener('click', () => this.handleAction());
+
+                // Modal Primary Button
+                this.modalActionBtn.addEventListener('click', () => {
+                    audio.playClick();
+                    this.modal.classList.add('hidden');
+                    
+                    if (this.pendingNextStage) {
+                        this.pendingNextStage = false;
+                        this.loadLevel(this.currentLevelIdx + 1);
+                    } else if (this.isErrorModal) {
+                        // User acknowledged error explanation, remain on level to retry
+                        this.isErrorModal = false;
+                    } else if (this.currentLevelIdx < LEVELS.length - 1) {
+                        this.loadLevel(this.currentLevelIdx + 1);
+                    } else {
+                        // Restart game
+                        this.currentLevelIdx = 0;
+                        this.score = 0;
+                        this.scoreDisplay.textContent = '0';
+                        this.loadLevel(0);
+                    }
+                });
+
+                // Modal Secondary "🔍 延長線段測試" Button (Triggers proof animation)
+                this.modalSecondaryBtn.addEventListener('click', () => {
+                    audio.playClick();
+                    this.modal.classList.add('hidden');
+                    this.isErrorModal = false;
+                    audio.playWhoosh();
+                    this.animateSliderTo(100);
+                });
+            }
+
+            resizeCanvas() {
+                const container = document.getElementById('canvas-container');
+                const rect = container.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.ctx.scale(dpr, dpr);
+                this.viewportWidth = rect.width;
+                this.viewportHeight = rect.height;
+            }
+
+            loadLevel(idx) {
+                this.currentLevelIdx = idx;
+                this.isSubmitted = false;
+                this.pendingNextStage = false;
+                this.isErrorModal = false;
+
+                this.extendSlider.value = 0;
+                this.extendFactor = 0;
+                this.extendValLabel.textContent = '0%';
+                this.selectedPairs.clear();
+                this.selectedBoolean = null;
+
+                const lvl = LEVELS[this.currentLevelIdx];
+
+                // Phase 2 Controls Adjustments (Hide Slider pre-prediction in Phase 2)
+                if (lvl.phase === 2) {
+                    this.extendSliderContainer.classList.add('hidden');
+                    this.phase2LockNotice.classList.remove('hidden');
+                    this.phase2LockNotice.classList.add('flex');
+                } else {
+                    this.extendSliderContainer.classList.remove('hidden');
+                    this.phase2LockNotice.classList.add('hidden');
+                    this.phase2LockNotice.classList.remove('flex');
+                }
+
+                // Progress & Header Updates
+                this.levelDisplay.textContent = `${lvl.level} / ${LEVELS.length}`;
+                const pct = Math.round((lvl.level / LEVELS.length) * 100);
+                this.stageProgressBar.style.width = `${pct}%`;
+
+                this.phaseBadge.textContent = lvl.phaseTitle;
+                this.questionPhaseTag.textContent = `第 ${lvl.level} 關 • ${lvl.title}`;
+                this.questionTitle.textContent = lvl.title;
+                this.questionDesc.textContent = lvl.desc;
+                this.canvasStatus.textContent = `${lvl.phaseTitle} (線段數: ${lvl.segments.length})`;
+
+                // Action Button Reset
+                if (lvl.phase === 2) {
+                    this.actionBtn.innerHTML = `<span>提交預測與驗證</span> <i class="fa-solid fa-play"></i>`;
+                } else {
+                    this.actionBtn.innerHTML = `<span>提交答案</span> <i class="fa-solid fa-paper-plane"></i>`;
+                }
+                this.actionBtn.className = "w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-200 transition duration-200 active:scale-[0.98] flex items-center justify-center space-x-2";
+
+                // Default Knowledge Card
+                this.knowledgeTitle.textContent = "什麼是平行線？";
+                this.knowledgeText.textContent = "在「同一平面」上，不管怎麼向兩端無限延長，都「永遠不會相交」的兩條直線，我們就稱這兩條直線互相平行！";
+
+                this.renderAnswerOptions(lvl);
+            }
+
+            renderAnswerOptions(lvl) {
+                this.answerOptionsContainer.innerHTML = '';
+
+                if (lvl.type === 'boolean') {
+                    // Phase 1 or 2 T/F options with strict wording
+                    const btn1 = document.createElement('button');
+                    btn1.className = `option-btn w-full p-3.5 rounded-xl border-2 text-left font-bold flex items-center justify-between transition border-slate-200 hover:border-indigo-400 bg-slate-50`;
+                    btn1.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-black">1</div>
+                            <div>
+                                <div class="text-slate-800 font-bold text-sm">1. 相交，不是一組平行線</div>
+                                <div class="text-[11px] text-slate-500 font-normal">無限延伸後會交叉並產生相交點</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-circle-check text-indigo-600 text-xl opacity-0 check-icon"></i>
+                    `;
+                    btn1.onclick = () => this.selectBooleanOption(true, btn1, btn2);
+
+                    const btn2 = document.createElement('button');
+                    btn2.className = `option-btn w-full p-3.5 rounded-xl border-2 text-left font-bold flex items-center justify-between transition border-slate-200 hover:border-indigo-400 bg-slate-50`;
+                    btn2.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">2</div>
+                            <div>
+                                <div class="text-slate-800 font-bold text-sm">2. 不相交，是一組平行線</div>
+                                <div class="text-[11px] text-slate-500 font-normal">無限延伸永遠保持距離，永不相交</div>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-circle-check text-indigo-600 text-xl opacity-0 check-icon"></i>
+                    `;
+                    btn2.onclick = () => this.selectBooleanOption(false, btn2, btn1);
+
+                    this.answerOptionsContainer.appendChild(btn1);
+                    this.answerOptionsContainer.appendChild(btn2);
+
+                } else if (lvl.type === 'multiselect') {
+                    // Phase 3 Multi-select options
+                    const segs = lvl.segments;
+                    const pairs = [];
+                    for (let i = 0; i < segs.length; i++) {
+                        for (let j = i + 1; j < segs.length; j++) {
+                            pairs.push(`${segs[i].id}-${segs[j].id}`);
+                        }
+                    }
+
+                    const gridDiv = document.createElement('div');
+                    gridDiv.className = 'grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1';
+
+                    pairs.forEach(pair => {
+                        const [idA, idB] = pair.split('-');
+                        const segA = segs.find(s => s.id === idA);
+                        const segB = segs.find(s => s.id === idB);
+
+                        const chip = document.createElement('button');
+                        chip.className = `pair-chip p-2.5 rounded-xl border-2 font-bold text-xs flex items-center justify-between transition border-slate-200 bg-slate-50 hover:bg-indigo-50/50`;
+                        chip.innerHTML = `
+                            <div class="flex items-center space-x-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color:${segA.color}"></span>
+                                <span>線段 ${idA}</span>
+                                <span class="text-slate-400 font-light">&</span>
+                                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color:${segB.color}"></span>
+                                <span>線段 ${idB}</span>
+                            </div>
+                            <div class="w-4 h-4 rounded border border-slate-300 flex items-center justify-center check-box bg-white">
+                                <i class="fa-solid fa-check text-[10px] text-indigo-600 hidden"></i>
+                            </div>
+                        `;
+                        chip.onclick = () => this.togglePairSelection(pair, chip);
+                        gridDiv.appendChild(chip);
+                    });
+
+                    this.answerOptionsContainer.appendChild(gridDiv);
+                }
+            }
+
+            selectBooleanOption(val, selectedBtn, otherBtn) {
+                if (this.isSubmitted) return;
+                audio.playClick();
+                this.selectedBoolean = val;
+
+                selectedBtn.classList.add('border-indigo-600', 'bg-indigo-50/60');
+                selectedBtn.querySelector('.check-icon').classList.remove('opacity-0');
+
+                otherBtn.classList.remove('border-indigo-600', 'bg-indigo-50/60');
+                otherBtn.querySelector('.check-icon').classList.add('opacity-0');
+            }
+
+            togglePairSelection(pair, chipBtn) {
+                if (this.isSubmitted) return;
+                audio.playClick();
+
+                const checkBox = chipBtn.querySelector('.check-box');
+                const checkIcon = checkBox.querySelector('i');
+
+                if (this.selectedPairs.has(pair)) {
+                    this.selectedPairs.delete(pair);
+                    chipBtn.classList.remove('border-indigo-600', 'bg-indigo-50');
+                    checkBox.classList.remove('bg-indigo-600', 'border-indigo-600');
+                    checkIcon.classList.add('hidden');
+                } else {
+                    this.selectedPairs.add(pair);
+                    chipBtn.classList.add('border-indigo-600', 'bg-indigo-50');
+                    checkBox.classList.add('bg-indigo-600', 'border-indigo-600');
+                    checkIcon.classList.remove('hidden');
+                }
+            }
+
+            handleAction() {
+                audio.playClick();
+
+                if (this.isSubmitted) {
+                    this.nextLevelOrStagePopup();
+                    return;
+                }
+
+                const lvl = LEVELS[this.currentLevelIdx];
+                let isCorrect = false;
+
+                if (lvl.type === 'boolean') {
+                    if (this.selectedBoolean === null) {
+                        this.showTempNotice(lvl.phase === 2 ? '【請先選擇預測】點擊選擇選項 1 或 2！' : '請先選擇一個選項！');
+                        return;
+                    }
+                    isCorrect = (this.selectedBoolean === lvl.correctAnswer);
+                } else if (lvl.type === 'multiselect') {
+                    if (this.selectedPairs.size === 0) {
+                        this.showTempNotice('請先勾選你延長測試後發現互相平行的線段組合！');
+                        return;
+                    }
+                    const userArr = Array.from(this.selectedPairs).sort();
+                    const correctArr = [...lvl.correctPairs].sort();
+                    isCorrect = (userArr.length === correctArr.length) && userArr.every((v, i) => v === correctArr[i]);
+                }
+
+                if (isCorrect) {
+                    this.isSubmitted = true;
+                    this.score += 100;
+                    this.scoreDisplay.textContent = this.score;
+
+                    audio.playWhoosh();
+                    this.animateSliderTo(100, () => {
+                        audio.playSuccess();
+                        this.knowledgeTitle.textContent = "🎉 答對了！你真棒！";
+                        this.knowledgeText.textContent = lvl.explanation;
+
+                        this.actionBtn.innerHTML = `<span>回答正確！點擊繼續</span> <i class="fa-solid fa-arrow-right"></i>`;
+                        this.actionBtn.className = "w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-200 transition duration-200 active:scale-[0.98] flex items-center justify-center space-x-2";
+                    });
+                } else {
+                    audio.playError();
+                    this.isErrorModal = true;
+                    const proofHtml = `<b>很好的嘗試！</b>延長線段之後，可以更清楚地看到線段到底有沒有碰到喔！<br><br>${lvl.explanation}`;
+                    this.showErrorProofModal("❌ 答錯了，不如再試一試吧！", proofHtml);
+                }
+            }
+
+            showTempNotice(text) {
+                const notice = document.createElement('div');
+                notice.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 font-bold text-sm flex items-center space-x-2 animate-bounce';
+                notice.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span>${text}</span>`;
+                document.body.appendChild(notice);
+                setTimeout(() => notice.remove(), 2200);
+            }
+
+            showErrorProofModal(title, proofHtml) {
+                this.modalTitle.textContent = title;
+                this.modalDesc.innerHTML = proofHtml;
+                this.modalScore.textContent = `${this.score} 分`;
+                
+                this.modalIcon.className = "fa-solid fa-xmark";
+                this.modalIconBg.className = "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner border-4 bg-rose-100 text-rose-500 border-rose-200";
+
+                this.modalSecondaryBtn.classList.remove('hidden');
+                this.modalSecondaryBtn.classList.add('flex');
+
+                this.modalBtnText.textContent = "我知道了，重新思考";
+                this.modalBtnIcon.className = "fa-solid fa-rotate-left";
+
+                this.modal.classList.remove('hidden');
+            }
+
+            nextLevelOrStagePopup() {
+                if (this.currentLevelIdx === 3) {
+                    // End of Phase 1 (Level 4)
+                    this.pendingNextStage = true;
+                    this.showStageModal(
+                        "🎉 恭喜完成第一階段！",
+                        "你已經深刻觀察並理解了平行線的核心觀念：<b>在同一平面上，無論怎麼向兩端無限延長，都永不相交的兩條直線就是平行線！</b><br><br>準備好挑戰第二階段的幾何直覺預測了嗎？",
+                        "進入第二階段：預測與驗證",
+                        "fa-circle-check",
+                        "bg-emerald-100 text-emerald-600 border-emerald-200"
+                    );
+                } else if (this.currentLevelIdx === 7) {
+                    // End of Phase 2 (Level 8)
+                    this.pendingNextStage = true;
+                    this.showStageModal(
+                        "🎉 恭喜完成第二階段！",
+                        "太厲害了！你成功通過了完全無預先延長的預測考驗！證明你已經建立起紮實的平行線幾何直覺！<br><br>接下來將進入包含 <b>3~4 條線段與視錯覺</b> 的終極大挑戰！",
+                        "進入第三階段：多線段錯覺挑戰",
+                        "fa-eye",
+                        "bg-indigo-100 text-indigo-600 border-indigo-200"
+                    );
+                } else if (this.currentLevelIdx === LEVELS.length - 1) {
+                    // End of Phase 3 (Level 11) -> Grand Victory
+                    audio.playGrandWin();
+                    this.showStageModal(
+                        "🏆 全通關總結榮譽視窗",
+                        `太了不起了！你成功識破了所有視錯覺干擾，精準找出所有平行線段組！<br><br><b>總結得分：${this.score} 分</b><br>獲頒：<b>幾何平行線特級大師榮譽勳章</b> 🥇`,
+                        "重新挑戰大冒險",
+                        "fa-trophy",
+                        "bg-amber-100 text-amber-500 border-amber-200"
+                    );
+                } else {
+                    this.loadLevel(this.currentLevelIdx + 1);
+                }
+            }
+
+            showStageModal(title, descHtml, btnText, iconClass, styleClasses) {
+                audio.playStageWin();
+                this.modalTitle.textContent = title;
+                this.modalDesc.innerHTML = descHtml;
+                this.modalBtnText.textContent = btnText;
+                this.modalBtnIcon.className = "fa-solid fa-arrow-right";
+                this.modalScore.textContent = `${this.score} 分`;
+                
+                this.modalIcon.className = `fa-solid ${iconClass}`;
+                this.modalIconBg.className = `w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner border-4 ${styleClasses}`;
+
+                this.modalSecondaryBtn.classList.add('hidden');
+                this.modalSecondaryBtn.classList.remove('flex');
+
+                this.modal.classList.remove('hidden');
+            }
+
+            animateSliderTo(targetVal, onComplete) {
+                let current = parseInt(this.extendSlider.value);
+                const step = () => {
+                    if (current < targetVal) {
+                        current += 5;
+                        if (current > targetVal) current = targetVal;
+                        this.extendSlider.value = current;
+                        this.extendFactor = current / 100;
+                        this.extendValLabel.textContent = `${current}%`;
+                        requestAnimationFrame(step);
+                    } else {
+                        if (onComplete) onComplete();
+                    }
+                };
+                requestAnimationFrame(step);
+            }
+
+            /**
+             * GEOMETRY CALCULATION ENGINE
+             */
+            findIntersection(segA, segB, factor) {
+                const scaleX = this.viewportWidth / 800;
+                const scaleY = this.viewportHeight / 500;
+
+                const ax1 = segA.x1 * scaleX, ay1 = segA.y1 * scaleY;
+                const ax2 = segA.x2 * scaleX, ay2 = segA.y2 * scaleY;
+                const bx1 = segB.x1 * scaleX, by1 = segB.y1 * scaleY;
+                const bx2 = segB.x2 * scaleX, by2 = segB.y2 * scaleY;
+
+                // Extension multiplier for rendering bounding calculation
+                const extLen = factor * 7.0;
+
+                const vAx = ax2 - ax1, vAy = ay2 - ay1;
+                const vBx = bx2 - bx1, vBy = by2 - by1;
+
+                const P1x = ax1 - extLen * vAx, P1y = ay1 - extLen * vAy;
+                const P2x = ax2 + extLen * vAx, P2y = ay2 + extLen * vAy;
+
+                const P3x = bx1 - extLen * vBx, P3y = by1 - extLen * vBy;
+                const P4x = bx2 + extLen * vBx, P4y = by2 + extLen * vBy;
+
+                const denom = (P4y - P3y) * (P2x - P1x) - (P4x - P3x) * (P2y - P1y);
+                if (Math.abs(denom) < 1e-5) return null; // Parallel
+
+                const ua = ((P4x - P3x) * (P1y - P3y) - (P4y - P3y) * (P1x - P3x)) / denom;
+                const ub = ((P2x - P1x) * (P1y - P3y) - (P2y - P1y) * (P1x - P3x)) / denom;
+
+                if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                    const ix = P1x + ua * (P2x - P1x);
+                    const iy = P1y + ua * (P2y - P1y);
+                    // Map back to 800x500 coordinates for badge display
+                    return { x: ix, y: iy, origX: Math.round(ix / scaleX), origY: Math.round(iy / scaleY) };
+                }
+
+                return null;
+            }
+
+            /**
+             * CANVAS RENDER LOOP
+             */
+            render() {
+                const ctx = this.ctx;
+                const w = this.viewportWidth;
+                const h = this.viewportHeight;
+
+                // Canvas Background
+                ctx.fillStyle = '#0f172a'; // Slate 900
+                ctx.fillRect(0, 0, w, h);
+
+                // Auxiliary Grid
+                if (this.showGrid) {
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 1;
+                    const gridSize = 40 * (w / 800);
+                    
+                    ctx.beginPath();
+                    for (let x = 0; x < w; x += gridSize) {
+                        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+                    }
+                    for (let y = 0; y < h; y += gridSize) {
+                        ctx.moveTo(0, y); ctx.lineTo(w, y);
+                    }
+                    ctx.stroke();
+                }
+
+                const lvl = LEVELS[this.currentLevelIdx];
+                const scaleX = w / 800;
+                const scaleY = h / 500;
+                const extMul = this.extendFactor * 6.0;
+
+                // Render Segments
+                lvl.segments.forEach(seg => {
+                    const x1 = seg.x1 * scaleX, y1 = seg.y1 * scaleY;
+                    const x2 = seg.x2 * scaleX, y2 = seg.y2 * scaleY;
+
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+
+                    const extX1 = x1 - dx * extMul;
+                    const extY1 = y1 - dy * extMul;
+                    const extX2 = x2 + dx * extMul;
+                    const extY2 = y2 + dy * extMul;
+
+                    // 1. Dashed Extension Tracks
+                    if (this.extendFactor > 0) {
+                        ctx.save();
+                        ctx.strokeStyle = seg.color;
+                        ctx.globalAlpha = 0.55;
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([8, 6]);
+                        ctx.beginPath();
+                        ctx.moveTo(extX1, extY1);
+                        ctx.lineTo(extX2, extY2);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+
+                    // 2. Solid Segment Line
+                    ctx.save();
+                    ctx.strokeStyle = seg.color;
+                    ctx.lineWidth = 6;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = seg.color;
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // 3. Segment ID Label Badges
+                    this.drawLabel(seg.id, x1 - 18, y1 - 18, seg.color);
+                });
+
+                // Calculate & Render Intersection Points
+                const segs = lvl.segments;
+                let foundAnyIntersection = false;
+
+                for (let i = 0; i < segs.length; i++) {
+                    for (let j = i + 1; j < segs.length; j++) {
+                        const pt = this.findIntersection(segs[i], segs[j], this.extendFactor);
+                        if (pt) {
+                            foundAnyIntersection = true;
+                            this.drawIntersectionPoint(pt.x, pt.y, pt.origX, pt.origY);
+                        }
+                    }
+                }
+
+                // If Extended (>50%) & No Intersections, Draw Parallel Symbol Badge
+                if (this.extendFactor > 0.5 && !foundAnyIntersection) {
+                    this.drawParallelBadge();
+                }
+
+                requestAnimationFrame(() => this.render());
+            }
+
+            drawLabel(text, x, y, color) {
+                const ctx = this.ctx;
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(x, y, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px "Fredoka One", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, y);
+                ctx.restore();
+            }
+
+            drawIntersectionPoint(x, y, origX, origY) {
+                const ctx = this.ctx;
+                const time = Date.now() * 0.005;
+                const pulseRadius = 12 + Math.sin(time) * 4;
+
+                ctx.save();
+                // Outer Pulsating Ring
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+                ctx.beginPath();
+                ctx.arc(x, y, pulseRadius + 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Solid Red Intersect Point
+                ctx.fillStyle = '#f43f5e';
+                ctx.shadowColor = '#f43f5e';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Coordinate Tag Badge
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = '#000000';
+                ctx.fillText(`相交點 (${origX}, ${origY})`, x + 14, y - 10);
+                ctx.restore();
+            }
+
+            drawParallelBadge() {
+                const ctx = this.ctx;
+                const w = this.viewportWidth;
+                const h = this.viewportHeight;
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
+                ctx.shadowColor = '#10b981';
+                ctx.shadowBlur = 12;
+                
+                const bw = 220, bh = 34;
+                const bx = (w - bw) / 2;
+                const by = h - bh - 16;
+
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, 12);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 13px "Noto Sans TC", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('// 永不相交 (平行線)', w / 2, by + bh / 2);
+                ctx.restore();
+            }
+        }
+
+        // Launch Game on Window Load
+        window.onload = () => {
+            new Game();
+        };
+    </script>
+</body>
+</html>
